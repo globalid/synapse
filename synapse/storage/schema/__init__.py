@@ -122,7 +122,7 @@ Changes in SCHEMA_VERSION = 81
 
 SCHEMA_COMPAT_VERSION = (
     # The `event_txn_id_device_id` must be written to for new events.
-    80
+    81
 )
 """Limit on how far the synapse codebase can be rolled back without breaking db compat
 
