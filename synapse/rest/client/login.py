@@ -557,6 +557,274 @@ def _get_auth_flow_dict_for_idp(idp: SsoIdentityProvider) -> JsonDict:
         e["brand"] = idp.idp_brand
     return e
 
+class LoginAppServiceOnlyRestServlet(RestServlet):
+    PATTERNS = client_patterns("/login$", v1=True)
+    CATEGORY = "Registration/login requests"
+    APPSERVICE_TYPE = "m.login.application_service"
+    REFRESH_TOKEN_PARAM = "refresh_token"
+
+    def __init__(self, hs: "HomeServer"):
+        super().__init__()
+        self.hs = hs
+        self.auth = hs.get_auth()
+        self.registration_handler = hs.get_registration_handler()
+        self._main_store = hs.get_datastores().main
+        self._refresh_tokens_enabled = (
+            hs.config.registration.refreshable_access_token_lifetime is not None
+        )
+        self.auth_handler = self.hs.get_auth_handler()
+
+        self.clock = hs.get_clock()
+
+        self._address_ratelimiter = Ratelimiter(
+            store=self._main_store,
+            clock=hs.get_clock(),
+            cfg=self.hs.config.ratelimiting.rc_login_address,
+        )
+        self._account_ratelimiter = Ratelimiter(
+            store=self._main_store,
+            clock=hs.get_clock(),
+            cfg=self.hs.config.ratelimiting.rc_login_account,
+        )
+        self._well_known_builder = WellKnownBuilder(hs)
+        # Whether we need to check if the user has been approved or not.
+        self._require_approval = (
+            hs.config.experimental.msc3866.enabled
+            and hs.config.experimental.msc3866.require_approval_for_new_accounts
+        )
+        self._spam_checker = hs.get_module_api_callbacks().spam_checker
+
+    async def on_POST(self, request: SynapseRequest) -> Tuple[int, LoginResponse]:
+        login_submission = parse_json_object_from_request(request)
+   
+        if login_submission["type"] != LoginAppServiceOnlyRestServlet.APPSERVICE_TYPE:
+            raise LoginError(400, "Invalid login type for this endpoint")
+        
+        # Check to see if the client requested a refresh token.
+        client_requested_refresh_token = login_submission.get(
+            LoginAppServiceOnlyRestServlet.REFRESH_TOKEN_PARAM, False
+        )
+        if not isinstance(client_requested_refresh_token, bool):
+            raise SynapseError(400, "`refresh_token` should be true or false.")
+
+        should_issue_refresh_token = (
+            self._refresh_tokens_enabled and client_requested_refresh_token
+        )
+        try:
+            requester = await self.auth.get_user_by_req(request)
+            appservice = requester.app_service
+
+            if appservice is None:
+                raise InvalidClientTokenError(
+                    "This login method is only valid for application services"
+                )
+            
+            if appservice.is_rate_limited():
+                await self._address_ratelimiter.ratelimit(
+                    None, request.getClientAddress().host
+                )
+            
+            result = await self._do_appservice_login(
+                login_submission,
+                appservice,
+                should_issue_refresh_token=should_issue_refresh_token,
+                request_info=request.request_info()
+            )
+        except KeyError:
+            raise SynapseError(400, "Missing JSON keys.")
+        
+        if self._require_approval:
+            approved = await self.auth_handler.is_user_approved(result["user_id"])
+            if not approved:
+                raise NotApprovedError(
+                    msg="This account is pending approval by a server administrator.",
+                    approval_notice_medium=ApprovalNoticeMedium.NONE,
+                )
+
+        well_known_data = self._well_known_builder.get_well_known()
+        if well_known_data:
+            result["well_known"] = well_known_data
+                   
+        return 200, result
+    
+    async def _do_appservice_login(
+        self,
+        login_submission: JsonDict,
+        appservice: ApplicationService,
+        should_issue_refresh_token: bool = False,
+        *,
+        request_info: RequestInfo,
+    ) -> LoginResponse:
+        identifier = login_submission.get("identifier")
+        logger.info("Got appservice login request with identifier: %r", identifier)
+
+        if not isinstance(identifier, dict):
+            raise SynapseError(
+                400, "Invalid identifier in login submission", Codes.INVALID_PARAM
+            )
+
+        # this login flow only supports identifiers of type "m.id.user".
+        if identifier.get("type") != "m.id.user":
+            raise SynapseError(
+                400, "Unknown login identifier type", Codes.INVALID_PARAM
+            )
+
+        user = identifier.get("user")
+        if not isinstance(user, str):
+            raise SynapseError(400, "Invalid user in identifier", Codes.INVALID_PARAM)
+
+        if user.startswith("@"):
+            qualified_user_id = user
+        else:
+            qualified_user_id = UserID(user, self.hs.hostname).to_string()
+
+        if not appservice.is_interested_in_user(qualified_user_id):
+            raise LoginError(403, "Invalid access_token", errcode=Codes.FORBIDDEN)
+
+        return await self._complete_login(
+            qualified_user_id,
+            login_submission,
+            ratelimit=appservice.is_rate_limited(),
+            should_issue_refresh_token=should_issue_refresh_token,
+            # The user represented by an appservice's configured sender_localpart
+            # is not actually created in Synapse.
+            should_check_deactivated=qualified_user_id != appservice.sender,
+            request_info=request_info,
+        )
+    
+    async def _complete_login(
+        self,
+        user_id: str,
+        login_submission: JsonDict,
+        callback: Optional[Callable[[LoginResponse], Awaitable[None]]] = None,
+        create_non_existent_users: bool = False,
+        ratelimit: bool = True,
+        auth_provider_id: Optional[str] = None,
+        should_issue_refresh_token: bool = False,
+        auth_provider_session_id: Optional[str] = None,
+        should_check_deactivated: bool = True,
+        *,
+        request_info: RequestInfo,
+    ) -> LoginResponse:
+        """Called when we've successfully authed the user and now need to
+        actually login them in (e.g. create devices). This gets called on
+        all successful logins.
+
+        Applies the ratelimiting for successful login attempts against an
+        account.
+
+        Args:
+            user_id: ID of the user to register.
+            login_submission: Dictionary of login information.
+            callback: Callback function to run after login.
+            create_non_existent_users: Whether to create the user if they don't
+                exist. Defaults to False.
+            ratelimit: Whether to ratelimit the login request.
+            auth_provider_id: The SSO IdP the user used, if any.
+            should_issue_refresh_token: True if this login should issue
+                a refresh token alongside the access token.
+            auth_provider_session_id: The session ID got during login from the SSO IdP.
+            should_check_deactivated: True if the user should be checked for
+                deactivation status before logging in.
+
+                This exists purely for appservice's configured sender_localpart
+                which doesn't have an associated user in the database.
+            request_info: The user agent/IP address of the user.
+
+        Returns:
+            Dictionary of account information after successful login.
+        """
+
+        # Before we actually log them in we check if they've already logged in
+        # too often. This happens here rather than before as we don't
+        # necessarily know the user before now.
+        if ratelimit:
+            await self._account_ratelimiter.ratelimit(None, user_id.lower())
+
+        if create_non_existent_users:
+            canonical_uid = await self.auth_handler.check_user_exists(user_id)
+            if not canonical_uid:
+                canonical_uid = await self.registration_handler.register_user(
+                    localpart=UserID.from_string(user_id).localpart
+                )
+            user_id = canonical_uid
+
+        # If the account has been deactivated, do not proceed with the login.
+        if should_check_deactivated:
+            deactivated = await self._main_store.get_user_deactivated_status(user_id)
+            if deactivated:
+                raise UserDeactivatedError("This account has been deactivated")
+
+        device_id = login_submission.get("device_id")
+
+        # If device_id is present, check that device_id is not longer than a reasonable 512 characters
+        if device_id and len(device_id) > 512:
+            raise LoginError(
+                400,
+                "device_id cannot be longer than 512 characters.",
+                errcode=Codes.INVALID_PARAM,
+            )
+
+        if self._require_approval:
+            approved = await self.auth_handler.is_user_approved(user_id)
+            if not approved:
+                # If the user isn't approved (and needs to be) we won't allow them to
+                # actually log in, so we don't want to create a device/access token.
+                return LoginResponse(
+                    user_id=user_id,
+                    home_server=self.hs.hostname,
+                )
+
+        initial_display_name = login_submission.get("initial_device_display_name")
+        spam_check = await self._spam_checker.check_login_for_spam(
+            user_id,
+            device_id=device_id,
+            initial_display_name=initial_display_name,
+            request_info=[(request_info.user_agent, request_info.ip)],
+            auth_provider_id=auth_provider_id,
+        )
+        if spam_check != self._spam_checker.NOT_SPAM:
+            logger.info("Blocking login due to spam checker")
+            raise SynapseError(
+                403,
+                msg="Login was blocked by the server",
+                errcode=spam_check[0],
+                additional_fields=spam_check[1],
+            )
+
+        (
+            device_id,
+            access_token,
+            valid_until_ms,
+            refresh_token,
+        ) = await self.registration_handler.register_device(
+            user_id,
+            device_id,
+            initial_display_name,
+            auth_provider_id=auth_provider_id,
+            should_issue_refresh_token=should_issue_refresh_token,
+            auth_provider_session_id=auth_provider_session_id,
+        )
+
+        result = LoginResponse(
+            user_id=user_id,
+            access_token=access_token,
+            home_server=self.hs.hostname,
+            device_id=device_id,
+        )
+
+        if valid_until_ms is not None:
+            expires_in_ms = valid_until_ms - self.clock.time_msec()
+            result["expires_in_ms"] = expires_in_ms
+
+        if refresh_token is not None:
+            result["refresh_token"] = refresh_token
+
+        if callback is not None:
+            await callback(result)
+
+        return result
+
 
 class RefreshTokenServlet(RestServlet):
     PATTERNS = client_patterns("/refresh$")
@@ -691,6 +959,7 @@ class CasTicketServlet(RestServlet):
 
 def register_servlets(hs: "HomeServer", http_server: HttpServer) -> None:
     if hs.config.experimental.msc3861.enabled:
+        LoginAppServiceOnlyRestServlet(hs).register(http_server)
         return
 
     LoginRestServlet(hs).register(http_server)
