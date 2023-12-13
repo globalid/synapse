@@ -594,6 +594,13 @@ class LoginAppServiceOnlyRestServlet(RestServlet):
         )
         self._spam_checker = hs.get_module_api_callbacks().spam_checker
 
+    def on_GET(self, request: SynapseRequest) -> Tuple[int, JsonDict]:
+        flows: List[JsonDict] = []
+
+        flows.append({"type": LoginRestServlet.APPSERVICE_TYPE})
+
+        return 200, {"flows": flows}
+
     async def on_POST(self, request: SynapseRequest) -> Tuple[int, LoginResponse]:
         login_submission = parse_json_object_from_request(request)
    
