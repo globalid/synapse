@@ -349,6 +349,7 @@ class MSC3861DelegatedAuth(BaseAuth):
 
             # Create the device on the fly if it does not exist
             try:
+                logger.info(f"[DELEGATED AUTH]: Device search started: {user_id.to_string()} - {device_id}")
                 device = await self.store.get_device(
                     user_id=user_id.to_string(), device_id=device_id
                 )

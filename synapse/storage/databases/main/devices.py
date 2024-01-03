@@ -262,6 +262,7 @@ class DeviceWorkerStore(RoomMemberWorkerStore, EndToEndKeyWorkerStore):
             desc="get_device",
             allow_none=True,
         )
+        logger.info("[DELEGATED AUTH]: get_device(%s, %s) -> %s", user_id, device_id, row)
         if row is None:
             return None
         return {"user_id": row[0], "device_id": row[1], "display_name": row[2]}
@@ -1789,7 +1790,7 @@ class DeviceStore(DeviceWorkerStore, DeviceBackgroundUpdateStore):
             user_id: The ID of the user which owns the devices
             device_ids: The IDs of the devices to delete
         """
-
+        logger.info("[DELEGATED AUTH]: Deleting devices %r for user %r", device_ids, user_id)
         def _delete_devices_txn(txn: LoggingTransaction) -> None:
             self.db_pool.simple_delete_many_txn(
                 txn,
