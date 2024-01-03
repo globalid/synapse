@@ -352,13 +352,17 @@ class MSC3861DelegatedAuth(BaseAuth):
                 device = await self.store.get_device(
                     user_id=user_id.to_string(), device_id=device_id
                 )
-                if device is None:
+                if device:
+                    logger.info(f"[DELEGATED AUTH]: Device found: {device_id}")
+                else:
+                    logger.info(f"[DELEGATED AUTH]: Device not found, storing new device: {device_id}")
                     await self.store.store_device(
                         user_id=user_id.to_string(),
                         device_id=device_id,
                         initial_device_display_name="OIDC-native client",
                     )
-            except StoreError:
+            except StoreError as error:
+                logger.error(f"[DELEGATED AUTH]: Error in device processing: {error}")
                 await self.store.store_device(
                     user_id=user_id.to_string(),
                     device_id=device_id,
