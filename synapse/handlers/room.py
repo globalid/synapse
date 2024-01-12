@@ -1733,42 +1733,36 @@ class RoomEventSource(EventSource[RoomStreamToken, EventBase]):
             logger.warning("Stream has topological part!!!! %r", from_key)
             from_key = RoomStreamToken(stream=from_key.stream)
 
-        app_service = self.store.get_app_service_by_user_id(user.to_string())
-        if app_service:
-            # We no longer support AS users using /sync directly.
-            # See https://github.com/matrix-org/matrix-doc/issues/1144
-            raise NotImplementedError()
-        else:
-            room_events = await self.store.get_membership_changes_for_user(
+        room_events = await self.store.get_membership_changes_for_user(
                 user.to_string(), from_key, to_key
             )
 
-            room_to_events = await self.store.get_room_events_stream_for_rooms(
-                room_ids=room_ids,
-                from_key=from_key,
-                to_key=to_key,
-                limit=limit or 10,
-                order="ASC",
-            )
-
-            events = list(room_events)
-            events.extend(e for evs, _ in room_to_events.values() for e in evs)
-
-            # We know stream_ordering must be not None here, as its been
-            # persisted, but mypy doesn't know that
-            events.sort(key=lambda e: cast(int, e.internal_metadata.stream_ordering))
-
-            if limit:
-                events[:] = events[:limit]
-
-            if events:
-                last_event = events[-1]
-                assert last_event.internal_metadata.stream_ordering
-                end_key = RoomStreamToken(
-                    stream=last_event.internal_metadata.stream_ordering,
+        room_to_events = await self.store.get_room_events_stream_for_rooms(
+                    room_ids=room_ids,
+                    from_key=from_key,
+                    to_key=to_key,
+                    limit=limit or 10,
+                    order="ASC",
                 )
-            else:
-                end_key = to_key
+
+        events = list(room_events)
+        events.extend(e for evs, _ in room_to_events.values() for e in evs)
+
+        # We know stream_ordering must be not None here, as its been
+        # persisted, but mypy doesn't know that
+        events.sort(key=lambda e: cast(int, e.internal_metadata.stream_ordering))
+
+        if limit:
+            events[:] = events[:limit]
+
+        if events:
+            last_event = events[-1]
+            assert last_event.internal_metadata.stream_ordering
+            end_key = RoomStreamToken(
+                stream=last_event.internal_metadata.stream_ordering,
+            )
+        else:
+            end_key = to_key
 
         return events, end_key
 
