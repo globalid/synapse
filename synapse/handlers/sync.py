@@ -1393,11 +1393,11 @@ class SyncHandler:
         """
 
         user_id = sync_config.user.to_string()
-        app_service = self.store.get_app_service_by_user_id(user_id)
-        if app_service:
-            # We no longer support AS users using /sync directly.
-            # See https://github.com/matrix-org/matrix-doc/issues/1144
-            raise NotImplementedError()
+        # app_service = self.store.get_app_service_by_user_id(user_id)
+        # if app_service:
+        #     # We no longer support AS users using /sync directly.
+        #     # See https://github.com/matrix-org/matrix-doc/issues/1144
+        #     raise NotImplementedError()
 
         # Note: we get the users room list *before* we get the current token, this
         # avoids checking back in history if rooms are joined after the token is fetched.
