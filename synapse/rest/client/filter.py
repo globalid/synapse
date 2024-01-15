@@ -84,8 +84,6 @@ class CreateFilterRestServlet(RestServlet):
         target_user = UserID.from_string(user_id)
         requester = await self.auth.get_user_by_req(request)
 
-        logger.info("[DEBUG]: Creating filter for %s, %s", target_user, requester)
-
         if target_user != requester.user:
             raise AuthError(403, "Cannot create filters for other users")
 
