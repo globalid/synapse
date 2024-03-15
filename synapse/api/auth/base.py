@@ -176,7 +176,7 @@ class BaseAuth:
         elif not app_service.is_interested_in_user(user_id):
             raise AuthError(
                 403,
-                "Application service cannot masquerade as this user (%s)." % user_id,
+                "Application service cannot masquerade as this user (%s) (%s)." % user_id, app_service.sender
             )
         # Check to make sure the user is already registered on the homeserver
         elif not (await self.store.get_user_by_id(user_id)):
