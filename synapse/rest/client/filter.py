@@ -90,6 +90,9 @@ class CreateFilterRestServlet(RestServlet):
     ) -> Tuple[int, JsonDict]:
         target_user = UserID.from_string(user_id)
         requester = await self.auth.get_user_by_req(request)
+        ## log target_user and requester
+        logger.info(f"<<<<<<<< target_user: {target_user}")
+        logger.info(f"<<<<<<<< requester: {requester}")
 
         if target_user != requester.user:
             raise AuthError(403, "Cannot create filters for other users")
