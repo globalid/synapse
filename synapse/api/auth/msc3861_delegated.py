@@ -233,6 +233,7 @@ class MSC3861DelegatedAuth(BaseAuth):
             # TODO: we probably want to assert the allow_guest inside this call
             # so that we don't provision the user if they don't have enough permission:
             requester = await self.get_user_by_access_token(access_token, allow_expired)
+            print("DLOG >> get_user_by_req >> requester:", requester)
 
         # Do not record requests from MAS using the virtual `__oidc_admin` user.
         if access_token != self._admin_token:
