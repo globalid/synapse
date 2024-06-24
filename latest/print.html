@@ -29,6 +29,7 @@
         <link rel="stylesheet" href="docs/website_files/table-of-contents.css">
         <link rel="stylesheet" href="docs/website_files/remove-nav-buttons.css">
         <link rel="stylesheet" href="docs/website_files/indent-section-headers.css">
+        <link rel="stylesheet" href="docs/website_files/version-picker.css">
     </head>
     <body>
         <!-- Provide site root to javascript -->
@@ -104,6 +105,18 @@
                         <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
                             <i class="fa fa-search"></i>
                         </button>
+                        <div class="version-picker">
+                            <div class="dropdown">
+                                <div class="select">
+                                    <span></span>
+                                    <i class="fa fa-chevron-down"></i>
+                                </div>
+                                <input type="hidden" name="version">
+                                <ul class="dropdown-menu">
+                                    <!-- Versions will be added dynamically in version-picker.js -->
+                                </ul>
+                            </div>
+                        </div>      
                     </div>
 
                     <h1 class="menu-title">Synapse</h1>
@@ -1018,6 +1031,10 @@ frontend matrix-federation
 backend matrix
   server matrix 127.0.0.1:8008
 </code></pre>
+<p>Example configuration, if using a UNIX socket. The configuration lines regarding the frontends do not need to be modified.</p>
+<pre><code>backend matrix
+  server matrix unix@/run/synapse/main_public.sock
+</code></pre>
 <p><a href="delegate.html">Delegation</a> example:</p>
 <pre><code>frontend https
   acl matrix-well-known-client-path path /.well-known/matrix/client
@@ -1783,6 +1800,29 @@ dpkg -i matrix-synapse-py3_1.3.0+stretch1_amd64.deb
 </code></pre>
 </li>
 </ul>
+<p>Generally Synapse database schemas are compatible across multiple versions, once
+a version of Synapse is deployed you may not be able to rollback automatically.
+The following table gives the version ranges and the earliest version they can
+be rolled back to. E.g. Synapse versions v1.58.0 through v1.61.1 can be rolled
+back safely to v1.57.0, but starting with v1.62.0 it is only safe to rollback to
+v1.61.0.</p>
+<table><thead><tr><th>Versions</th><th>Compatible version</th></tr></thead><tbody>
+<tr><td>v1.0.0 – v1.2.1</td><td>v1.0.0</td></tr>
+<tr><td>v1.3.0 – v1.8.0</td><td>v1.3.0</td></tr>
+<tr><td>v1.9.0 – v1.12.4</td><td>v1.9.0</td></tr>
+<tr><td>v1.13.0 – v1.25.0</td><td>v1.13.0</td></tr>
+<tr><td>v1.26.0 – v1.44.0</td><td>v1.26.0</td></tr>
+<tr><td>v1.45.0 – v1.47.1</td><td>v1.38.0</td></tr>
+<tr><td>v1.48.0 – v1.51.0</td><td>v1.39.0</td></tr>
+<tr><td>v1.52.0 – v1.57.1</td><td>v1.49.0</td></tr>
+<tr><td>v1.58.0 – v1.61.1</td><td>v1.57.0</td></tr>
+<tr><td>v1.62.0 – v1.63.1</td><td>v1.61.0</td></tr>
+<tr><td>v1.64.0 – v1.69.0</td><td>v1.62.0</td></tr>
+<tr><td>v1.70.0 – v1.82.0</td><td>v1.68.0</td></tr>
+<tr><td>v1.83.0 – v1.84.1</td><td>v1.77.0</td></tr>
+<tr><td>v1.85.0 – v1.91.2</td><td>v1.83.0</td></tr>
+<tr><td>v1.92.0 – v1.96.1</td><td>v1.90.0</td></tr>
+</tbody></table>
 <h1 id="upgrading-to-v1930"><a class="header" href="#upgrading-to-v1930">Upgrading to v1.93.0</a></h1>
 <h2 id="minimum-supported-rust-version"><a class="header" href="#minimum-supported-rust-version">Minimum supported Rust version</a></h2>
 <p>The minimum supported Rust version has been increased from v1.60.0 to v1.61.0.
@@ -3722,6 +3762,16 @@ messages from the database after 5 minutes, rather than 5 months.</p>
 </ul>
 <p>For example, setting <code>max_avatar_size: 10M</code> means that Synapse will not accept files larger than 10,485,760 bytes
 for a user avatar.</p>
+<h2 id="config-validation"><a class="header" href="#config-validation">Config Validation</a></h2>
+<p>The configuration file can be validated with the following command:</p>
+<pre><code class="language-bash">python -m synapse.config read &lt;config key to print&gt; -c &lt;path to config&gt;
+</code></pre>
+<p>To validate the entire file, omit <code>read &lt;config key to print&gt;</code>:</p>
+<pre><code class="language-bash">python -m synapse.config -c &lt;path to config&gt;
+</code></pre>
+<p>To see how to set other options, check the help reference:</p>
+<pre><code class="language-bash">python -m synapse.config --help
+</code></pre>
 <h3 id="yaml"><a class="header" href="#yaml">YAML</a></h3>
 <p>The configuration file is a <a href="https://yaml.org/">YAML</a> file, which means that certain syntax rules
 apply if you want your config file to be read properly. A few helpful things to know:</p>
@@ -4181,7 +4231,7 @@ for <a href="usage/configuration/../../workers.html">workers</a> and containers 
   # Note that x_forwarded will default to true, when using a UNIX socket. Please see
   # https://matrix-org.github.io/synapse/latest/reverse_proxy.html.
   #
-  - path: /var/run/synapse/main_public.sock
+  - path: /run/synapse/main_public.sock
     type: http
     resources:
       - names: [client, federation]
@@ -6996,6 +7046,8 @@ notices.</p>
 <li><code>system_mxid_display_name</code>: set the display name of the &quot;notices&quot; user</li>
 <li><code>system_mxid_avatar_url</code>: set the avatar for the &quot;notices&quot; user</li>
 <li><code>room_name</code>: set the room name of the server notices room</li>
+<li><code>auto_join</code>: boolean. If true, the user will be automatically joined to the room instead of being invited.
+Defaults to false. <em>Added in Synapse 1.98.0.</em></li>
 </ul>
 <p>Example configuration:</p>
 <pre><code class="language-yaml">server_notices:
@@ -7003,6 +7055,7 @@ notices.</p>
   system_mxid_display_name: &quot;Server Notices&quot;
   system_mxid_avatar_url: &quot;mxc://server.com/oumMVlgDnLYFaPVkExemNVVZ&quot;
   room_name: &quot;Server Notices&quot;
+  auto_join: true
 </code></pre>
 <hr />
 <h3 id="enable_room_list_search"><a class="header" href="#enable_room_list_search"><code>enable_room_list_search</code></a></h3>
@@ -7312,9 +7365,9 @@ declared inside the <code>listener</code> block for a <code>replication</code> l
 <p>Example configuration(#2, for UNIX sockets):</p>
 <pre><code class="language-yaml">instance_map:
   main:
-    path: /var/run/synapse/main_replication.sock
+    path: /run/synapse/main_replication.sock
   worker1:
-    path: /var/run/synapse/worker1_replication.sock
+    path: /run/synapse/worker1_replication.sock
 </code></pre>
 <hr />
 <h3 id="stream_writers"><a class="header" href="#stream_writers"><code>stream_writers</code></a></h3>
@@ -7473,13 +7526,13 @@ requests from other workers.</p>
 <p>Example configuration(#2, using UNIX sockets with a <code>replication</code> listener):</p>
 <pre><code class="language-yaml">worker_listeners:
   - type: http
-    path: /var/run/synapse/worker_public.sock
-    resources:
-      - names: [client, federation]
-  - type: http
-    path: /var/run/synapse/worker_replication.sock
+    path: /run/synapse/worker_replication.sock
     resources:
       - names: [replication]
+  - type: http
+    path: /run/synapse/worker_public.sock
+    resources:
+      - names: [client, federation]
 </code></pre>
 <hr />
 <h3 id="worker_manhole"><a class="header" href="#worker_manhole"><code>worker_manhole</code></a></h3>
@@ -9386,12 +9439,14 @@ section, which should look like this:</p>
    system_mxid_display_name: &quot;Server Notices&quot;
    system_mxid_avatar_url: &quot;mxc://server.com/oumMVlgDnLYFaPVkExemNVVZ&quot;
    room_name: &quot;Server Notices&quot;
+   auto_join: true
 </code></pre>
 <p>The only compulsory setting is <code>system_mxid_localpart</code>, which defines the user
 id of the Server Notices user, as above. <code>room_name</code> defines the name of the
 room which will be created.</p>
 <p><code>system_mxid_display_name</code> and <code>system_mxid_avatar_url</code> can be used to set the
 displayname and avatar of the Server Notices user.</p>
+<p><code>auto_join</code> will autojoin users to the notices room instead of sending an invite.</p>
 <h2 id="sending-notices"><a class="header" href="#sending-notices">Sending notices</a></h2>
 <p>To send server notices to users you can use the
 <a href="admin_api/server_notices.html">admin_api</a>.</p>
@@ -10735,6 +10790,13 @@ any of the subsequent implementations of this callback.</p>
 </code></pre>
 <p>Called after successfully registering a user, in case the module needs to perform extra
 operations to keep track of them. (e.g. add them to a database table). The user is
+represented by their Matrix user ID.</p>
+<p>If multiple modules implement this callback, Synapse runs them all in order.</p>
+<h3 id="on_user_login"><a class="header" href="#on_user_login"><code>on_user_login</code></a></h3>
+<p><em>First introduced in Synapse v1.98.0</em></p>
+<pre><code class="language-python">async def on_user_login(user_id: str, auth_provider_type: str, auth_provider_id: str) -&gt; None
+</code></pre>
+<p>Called after successfully login or registration of a user for cases when module needs to perform extra operations after auth.
 represented by their Matrix user ID.</p>
 <p>If multiple modules implement this callback, Synapse runs them all in order.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="password-auth-provider-callbacks"><a class="header" href="#password-auth-provider-callbacks">Password auth provider callbacks</a></h1>
@@ -16394,7 +16456,7 @@ source, you should install <code>poetry</code>.
 Of their installation methods, we recommend
 <a href="https://python-poetry.org/docs/#installing-with-pipx">installing <code>poetry</code> using <code>pipx</code></a>,</p>
 <pre><code class="language-shell">pip install --user pipx
-pipx install poetry==1.5.2  # Problems with Poetry 1.6, see https://github.com/matrix-org/synapse/issues/16147
+pipx install poetry==1.5.1  # Problems with Poetry 1.6, see https://github.com/matrix-org/synapse/issues/16147
 </code></pre>
 <p>but see poetry's <a href="https://python-poetry.org/docs/#installation">installation instructions</a>
 for other installation methods.</p>
@@ -19658,6 +19720,8 @@ admin@homeserver:~$ sudo --user postgres psql matrix-synapse --command 'select c
 
         <!-- Custom JS scripts -->
         <script type="text/javascript" src="docs/website_files/table-of-contents.js"></script>
+        <script type="text/javascript" src="docs/website_files/version-picker.js"></script>
+        <script type="text/javascript" src="docs/website_files/version.js"></script>
         <script type="text/javascript">
         window.addEventListener('load', function() {
             window.setTimeout(window.print, 100);
