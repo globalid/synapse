@@ -139,6 +139,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN --mount=type=cache,target=/root/.cache/pip \
   pip install --prefix="/install" --no-warn-script-location synapse-s3-storage-provider
 
+# Add support for S3 storage provider (https://github.com/matrix-org/synapse-s3-storage-provider)
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install --prefix="/install" --no-warn-script-location \
+    git+https://github.com/devture/matrix-synapse-shared-secret-auth@2.0.3
+
 # Copy over the rest of the synapse source code.
 COPY synapse /synapse/synapse/
 COPY rust /synapse/rust/
