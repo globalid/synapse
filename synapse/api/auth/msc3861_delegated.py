@@ -314,7 +314,9 @@ class MSC3861DelegatedAuth(BaseAuth):
         # TODO: introspection verification should be more extensive, especially:
         #   - verify the audience
         if not introspection_result.get("active"):
-            raise InvalidClientTokenError("Token is not active")
+            raise InvalidClientTokenError(
+                msg="Token is not active", soft_logout=True
+            )
 
         # Let's look at the scope
         scope: List[str] = scope_to_list(introspection_result.get("scope", ""))
