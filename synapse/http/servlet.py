@@ -837,7 +837,7 @@ def parse_json_value_from_request(
         request_uri = request.uri.decode("ascii", errors="replace")  # Decode URI
 
         if "/_matrix/client/unstable/org.matrix.simplified_msc3575/sync" in request_uri:
-            logger.debug(
+            logger.warning(
                 "Received request: method=%s, uri=%s, content_length=%s, body=%s",
                 request.method.decode("ascii", errors="replace"),
                 request_uri,
