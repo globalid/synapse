@@ -1735,8 +1735,8 @@ class RoomEventSource(EventSource[RoomStreamToken, EventBase]):
             from_key = RoomStreamToken(stream=from_key.stream)
 
         room_events = await self.store.get_membership_changes_for_user(
-                user.to_string(), from_key, to_key
-            )
+            user.to_string(), from_key, to_key
+        )
 
         room_to_events = await self.store.get_room_events_stream_for_rooms(
             room_ids=room_ids,
