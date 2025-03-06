@@ -1738,39 +1738,13 @@ class RoomEventSource(EventSource[RoomStreamToken, EventBase]):
                 user.to_string(), from_key, to_key
             )
 
-<<<<<<< HEAD
-            room_to_events = await self.store.get_room_events_stream_for_rooms(
-                room_ids=room_ids,
-                from_key=from_key,
-                to_key=to_key,
-                limit=limit or 10,
-                direction=Direction.FORWARDS,
-            )
-
-            events = list(room_events)
-            events.extend(e for evs, _, _ in room_to_events.values() for e in evs)
-
-            # We know stream_ordering must be not None here, as its been
-            # persisted, but mypy doesn't know that
-            events.sort(key=lambda e: cast(int, e.internal_metadata.stream_ordering))
-
-            if limit:
-                events[:] = events[:limit]
-
-            if events:
-                last_event = events[-1]
-                assert last_event.internal_metadata.stream_ordering
-                end_key = RoomStreamToken(
-                    stream=last_event.internal_metadata.stream_ordering,
-=======
         room_to_events = await self.store.get_room_events_stream_for_rooms(
-                    room_ids=room_ids,
-                    from_key=from_key,
-                    to_key=to_key,
-                    limit=limit or 10,
-                    order="ASC",
->>>>>>> d55b9dfb58 (fix /sync for application services)
-                )
+            room_ids=room_ids,
+            from_key=from_key,
+            to_key=to_key,
+            limit=limit or 10,
+            direction=Direction.FORWARDS,
+        )
 
         events = list(room_events)
         events.extend(e for evs, _ in room_to_events.values() for e in evs)
