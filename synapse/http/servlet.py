@@ -836,7 +836,7 @@ def parse_json_value_from_request(
         content_bytes = request.content.read()  # Read raw bytes
         request_uri = request.uri.decode("ascii", errors="replace")  # Decode URI
 
-        if "/_matrix/client/unstable/org.matrix.simplified_msc3575/sync" in request_uri:
+        if "/_matrix/client/unstable/org.matrix.simplified_msc3575/sync" in request_uri or "/_matrix/client/v3/room_keys/keys/" in request_uri:
             logger.warning(
                 "Received request: method=%s, uri=%s, content_length=%s, body=%s",
                 request.method.decode("ascii", errors="replace"),
