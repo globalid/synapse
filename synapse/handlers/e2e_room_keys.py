@@ -243,11 +243,15 @@ class E2eRoomKeysHandler:
                             "user_id": user_id,
                         }
                     )
+                    logger.info(
+                        "Trying to upload room key. room_id=%s, session_id=%s, user_id=%s",
+                        room_id, session_id, user_id
+                    )
                     current_room_key = existing_keys.get(room_id, {}).get(session_id)
                     if current_room_key:
                         if self._should_replace_room_key(current_room_key, room_key):
                             log_kv({"message": "Replacing room key."})
-                            logger.debug(
+                            logger.info(
                                 "Replacing room key. room=%s session=%s user=%s",
                                 room_id,
                                 session_id,
@@ -262,7 +266,7 @@ class E2eRoomKeysHandler:
                             changed = True
                         else:
                             log_kv({"message": "Not replacing room_key."})
-                            logger.debug(
+                            logger.info(
                                 "Not replacing room key. room=%s session=%s user=%s",
                                 room_id,
                                 session_id,
@@ -277,7 +281,7 @@ class E2eRoomKeysHandler:
                             }
                         )
                         log_kv({"message": "Replacing room key."})
-                        logger.debug(
+                        logger.info(
                             "Inserting new room key. room=%s session=%s user=%s",
                             room_id,
                             session_id,
@@ -287,16 +291,23 @@ class E2eRoomKeysHandler:
                         changed = True
 
             if len(to_insert):
+                logger.info("Inserting %d new room keys for user_id=%s, version=%s",
+                            len(to_insert), user_id, version)
                 await self.store.add_e2e_room_keys(user_id, version, to_insert)
 
             version_etag = version_info["etag"]
             if changed:
                 version_etag = version_etag + 1
+                logger.info(
+                    "Updating e2e room keys version. user_id=%s, version=%s, new_etag=%s",
+                    user_id, version, version_etag)
                 await self.store.update_e2e_room_keys_version(
                     user_id, version, None, version_etag
                 )
 
             count = await self.store.count_e2e_room_keys(user_id, version)
+            logger.info("Final count of room keys for user_id=%s, version=%s: %d",
+                        user_id, version, count)
             return {"etag": str(version_etag), "count": count}
 
     @staticmethod
