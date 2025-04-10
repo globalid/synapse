@@ -133,8 +133,12 @@ class RoomKeysServlet(RestServlet):
         """
         requester = await self.auth.get_user_by_req(request, allow_guest=False)
         user_id = requester.user.to_string()
+        logger.info(f"User ID {user_id}")
         body = parse_json_object_from_request(request)
+        logger.info(f"Request body parsed: {body}")
         version = parse_string(request, "version", required=True)
+        logger.info(
+            f"Received PUT request for room_id: {room_id}, session_id: {session_id}, version: {version}")
 
         if session_id:
             body = {"sessions": {session_id: body}}
@@ -142,8 +146,17 @@ class RoomKeysServlet(RestServlet):
         if room_id:
             body = {"rooms": {room_id: body}}
 
-        ret = await self.e2e_room_keys_handler.upload_room_keys(user_id, version, body)
-        return 200, ret
+        try:
+            logger.info(
+                f"Attempting to upload room keys for user {user_id} with version {version}")
+            ret = await self.e2e_room_keys_handler.upload_room_keys(user_id, version,
+                                                                    body)
+            logger.info(f"Successfully uploaded room keys for user {user_id}.")
+            return 200, ret
+        except Exception as e:
+            logger.error(
+                f"Failed to upload room keys for user {user_id}. Error: {str(e)}")
+            return 500, {"error": "Internal Server Error"}
 
     async def on_GET(
         self, request: SynapseRequest, room_id: Optional[str], session_id: Optional[str]
