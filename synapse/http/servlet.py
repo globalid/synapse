@@ -829,9 +829,31 @@ def parse_json_value_from_request(
     Raises:
         SynapseError if the request body couldn't be decoded as JSON.
     """
+    content_bytes = b""
+    request_uri = "UNKNOWN_URI"
+
     try:
-        content_bytes = request.content.read()  # type: ignore
-    except Exception:
+        content_bytes = request.content.read()  # Read raw bytes
+        request_uri = request.uri.decode("ascii", errors="replace")  # Decode URI
+
+        if "/_matrix/client/unstable/org.matrix.simplified_msc3575/sync" in request_uri:
+            logger.warning(
+                "Received request: method=%s, uri=%s, content_length=%s, body=%s",
+                request.method.decode("ascii", errors="replace"),
+                request_uri,
+                request.getHeader("content-length"),
+                content_bytes.decode("utf-8", errors="replace"),  # Decode full content
+            )
+    except Exception as e:
+        logger.error(
+            "Error reading JSON content from %s %s: %s\nFull content: %s",
+            request.method.decode(
+                "ascii", errors="replace") if request else "UNKNOWN_METHOD",
+            request_uri,
+            e,
+            content_bytes.decode("utf-8", errors="replace"),  # Log full request body
+        )
+
         raise SynapseError(HTTPStatus.BAD_REQUEST, "Error reading JSON content.")
 
     if not content_bytes and allow_empty_body:
