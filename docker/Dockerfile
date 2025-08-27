@@ -159,6 +159,9 @@ RUN --mount=type=cache,target=/synapse/target,sharing=locked \
   pip install --prefix="/install" --no-warn-script-location /synapse[all]; \
   fi
 
+COPY module.whl /tmp/module.whl
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install --prefix="/install" --no-warn-script-location /tmp/module.whl
 ###
 ### Stage 2: runtime
 ###
