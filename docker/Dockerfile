@@ -160,8 +160,11 @@ RUN --mount=type=cache,target=/synapse/target,sharing=locked \
   fi
 
 COPY docker/module.whl /tmp/module.whl
+
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --prefix="/install" --no-warn-script-location /tmp/module.whl
+    pip install --no-deps --prefix="/install" --no-warn-script-location -vvv /tmp/module.whl
+
 ###
 ### Stage 2: runtime
 ###
