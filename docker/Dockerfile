@@ -162,12 +162,14 @@ RUN --mount=type=cache,target=/synapse/target,sharing=locked \
 COPY docker/module.whl /tmp/module.whl
 
 RUN --mount=type=cache,target=/root/.cache/pip \
-    PYVER="$(python -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')" && \
-    TARGET="/install/lib/python${PYVER}/dist-packages" && \
+    PYVER="$(python -c 'import sys; print(\"%d.%d\" % (sys.version_info.major, sys.version_info.minor))')" && \
+    TARGET="/install/lib/python${PYVER}/site-packages" && \
     mkdir -p "$TARGET" && \
     python -m pip install -vvv --no-deps --no-warn-script-location \
-      --target="$TARGET" /tmp/module.whl && \
-    python -c "import sys, importlib; p=f'/install/lib/python{sys.version_info.major}.{sys.version_info.minor}/dist-packages'; sys.path.insert(0,p); m=importlib.import_module('synapse_auto_dm_inviter'); print('installed:', m.__file__)"
+      --target="$TARGET" /tmp/module.whl
+
+RUN python -c "import sys, importlib; p='/install/lib/python'+str(sys.version_info.major)+'.'+str(sys.version_info.minor)+'/site-packages'; sys.path.insert(0,p); m=importlib.import_module('synapse_auto_dm_inviter'); print('installed:', m.__file__)"
+
 
 ###
 ### Stage 2: runtime
