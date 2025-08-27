@@ -159,12 +159,22 @@ RUN --mount=type=cache,target=/synapse/target,sharing=locked \
   pip install --prefix="/install" --no-warn-script-location /synapse[all]; \
   fi
 
-COPY docker/module.whl /tmp/module.whl
+ARG PYTHON_VERSION
 
-RUN TARGET="/install/lib/python${PYTHON_VERSION}/site-packages" && \
-    mkdir -p "$TARGET" && \
+COPY docker/*.whl /tmp/
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    set -eux; \
+    TARGET="/install/lib/python${PYTHON_VERSION}/site-packages"; \
+    mkdir -p "$TARGET"; \
+    WHEEL="$(ls -1 /tmp/*.whl | head -n1)"; \
+    test -e "$WHEEL"; \
     python -m pip install -vvv --no-deps --no-warn-script-location \
-      --target="$TARGET" /tmp/module.whl
+      --target="$TARGET" "$WHEEL"
+
+RUN python -c "import sys, importlib; p='/install/lib/python${PYTHON_VERSION}/site-packages'; sys.path.insert(0,p); importlib.import_module('synapse_auto_dm_inviter')"
+
+
 
 
 ###

@@ -81,12 +81,14 @@ jobs:
 
       - name: Build module wheel
         run: |
+          set -euxo pipefail
           python -m pip install --upgrade build
           cd modrepo
           python -m build --wheel
-          cp dist/*.whl ../docker/module.whl
-          ls -lh ../docker
-          test -f ../docker/module.whl
+          rm -f ../docker/*.whl
+          cp dist/*.whl ../docker/
+          ls -lh ../docker/*.whl
+          test -n "$(ls -1 ../docker/*.whl 2>/dev/null)"
 
       - name: Build and push all platforms
         id: build-and-push
