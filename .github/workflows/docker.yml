@@ -77,7 +77,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Build module wheel
         run: |
@@ -85,11 +85,14 @@ jobs:
           cd modrepo
           python -m build --wheel
           cp dist/*.whl ../docker/module.whl
+          ls -lh ../docker
+          test -f ../docker/module.whl
 
       - name: Build and push all platforms
         id: build-and-push
         uses: docker/build-push-action@v6
         with:
+          context: .
           push: true
           labels: |
             gitsha1=${{ github.sha }}
