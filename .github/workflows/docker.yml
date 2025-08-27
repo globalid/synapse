@@ -64,7 +64,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/gid' }}
             type=pep440,pattern={{raw}}
 
-git       - name: Checkout module repo
+      - name: Checkout module repo
         uses: actions/checkout@v4
         with:
           repository: globalid/messaging-auto-dm-inviter
