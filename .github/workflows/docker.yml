@@ -64,10 +64,37 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/gid' }}
             type=pep440,pattern={{raw}}
 
+      - name: Checkout module repo
+        uses: actions/checkout@v4
+        with:
+          repository: globalid/messaging-auto-dm-inviter
+          ref: v0.1.0
+          path: modrepo
+          ssh-key: ${{ secrets.MODULE_REPO_SSH_KEY }}
+          persist-credentials: false
+
+      # Build the wheel
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build module wheel
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade build
+          cd modrepo
+          python -m build --wheel
+          rm -f ../docker/*.whl
+          cp dist/*.whl ../docker/
+          ls -lh ../docker/*.whl
+          test -n "$(ls -1 ../docker/*.whl 2>/dev/null)"
+
       - name: Build and push all platforms
         id: build-and-push
         uses: docker/build-push-action@v6
         with:
+          context: .
           push: true
           labels: |
             gitsha1=${{ github.sha }}
