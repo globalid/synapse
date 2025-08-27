@@ -84,7 +84,7 @@ jobs:
           python -m pip install --upgrade build
           cd modrepo
           python -m build --wheel
-          cp dist/*.whl ../module.whl
+          cp dist/*.whl ../docker/module.whl
 
       - name: Build and push all platforms
         id: build-and-push
