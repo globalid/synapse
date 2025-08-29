@@ -404,6 +404,18 @@ class MSC3861DelegatedAuth(BaseAuth):
             await self.store.record_user_external_id(
                 MSC3861DelegatedAuth.EXTERNAL_ID_PROVIDER, sub, user_id.to_string()
             )
+            # Create initial rooms
+            try:
+                base = self.hs.config.server.public_baseurl.rstrip("/")
+                await self._http_client.post_json_get_json(
+                    f"{base}/_synapse/client/auto-dm-inviter/create_for_user",
+                    {"user_id": user_id.to_string()},
+                    headers={b"Authorization": [
+                        f"Bearer {self._admin_token}".encode("ascii")]},
+                )
+                logger.info("Auto DM inviter triggered for %s", user_id)
+            except Exception:
+                logger.exception("Failed to trigger auto-dm inviter for %s", user_id)
         else:
             user_id = UserID.from_string(user_id_str)
 
