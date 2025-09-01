@@ -404,6 +404,10 @@ class ExperimentalConfig(Config):
                 "Invalid MSC3861 configuration", ("experimental", "msc3861")
             ) from exc
 
+        self.auto_dm_inviter_on_account_creation: bool = experimental.get(
+            "auto_dm_inviter_on_account_creation", False
+        )
+
         # Check that none of the other config options conflict with MSC3861 when enabled
         self.msc3861.check_config_conflicts(self.root)
 
