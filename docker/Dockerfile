@@ -167,10 +167,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     set -eux; \
     TARGET="/install/lib/python${PYTHON_VERSION}/site-packages"; \
     mkdir -p "$TARGET"; \
-    WHEEL="$(ls -1 /tmp/*.whl | head -n1)"; \
-    test -e "$WHEEL"; \
-    python -m pip install -vvv --no-deps --no-warn-script-location \
-      --target="$TARGET" "$WHEEL"
+    for WHEEL in /tmp/*.whl; do \
+      test -e "$WHEEL"; \
+      python -m pip install -vvv --no-deps --no-warn-script-location \
+        --target="$TARGET" "$WHEEL"; \
+    done
 
 RUN python -c "import sys, importlib; p='/install/lib/python${PYTHON_VERSION}/site-packages'; sys.path.insert(0,p); importlib.import_module('synapse_auto_dm_inviter')"
 
