@@ -1,0 +1,20 @@
+# Example Synapse configuration for Mixpanel Analytics Module
+#
+# Add this to your homeserver.yaml file
+
+# Enable MSC4133 for custom profile fields (required)
+experimental_features:
+  msc4133_enabled: true
+
+# Load the Mixpanel analytics module
+modules:
+  - module: synapse_modules.mixpanel_analytics.MixpanelAnalytics
+    config:
+      # Your Mixpanel project token (required)
+      mixpanel_token: "YOUR_MIXPANEL_PROJECT_TOKEN"
+
+      # Optional: Enable/disable tracking (default: true)
+      enabled: true
+
+      # Optional: Debug mode - logs events instead of sending to Mixpanel (default: false)
+      debug: false

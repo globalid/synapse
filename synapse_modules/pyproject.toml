@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synapse-mixpanel-analytics"
+version = "0.1.0"
+description = "Synapse module for tracking chat events in Mixpanel"
+readme = "mixpanel_analytics/README.md"
+requires-python = ">=3.8"
+license = {text = "AGPL-3.0-or-later"}
+authors = [
+    {name = "USBC", email = "support@usbc.xyz"},
+]
+dependencies = [
+    "requests>=2.25.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/globalid/synapse"
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["synapse_modules", "synapse_modules.*"]
