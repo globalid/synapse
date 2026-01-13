@@ -79,7 +79,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build module wheel
+      - name: Build dm-inviter module wheel
         run: |
           set -euxo pipefail
           python -m pip install --upgrade build
@@ -89,6 +89,14 @@ jobs:
           cp dist/*.whl ../docker/
           ls -lh ../docker/*.whl
           test -n "$(ls -1 ../docker/*.whl 2>/dev/null)"
+
+      - name: Build mixpanel module wheel
+        run: |
+          set -euxo pipefail
+          cd synapse_modules
+          python -m build --wheel
+          cp dist/*.whl ../docker/
+          ls -lh ../docker/*.whl
 
       - name: Build and push all platforms
         id: build-and-push
