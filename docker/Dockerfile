@@ -139,6 +139,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN --mount=type=cache,target=/root/.cache/pip \
   pip install --prefix="/install" --no-warn-script-location synapse-s3-storage-provider
 
+# Install mixpanel for analytics module
+RUN --mount=type=cache,target=/root/.cache/pip \
+  pip install --prefix="/install" --no-warn-script-location "mixpanel>=4.10.0"
+
 # Copy over the rest of the synapse source code.
 COPY synapse /synapse/synapse/
 COPY rust /synapse/rust/
@@ -167,12 +171,15 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     set -eux; \
     TARGET="/install/lib/python${PYTHON_VERSION}/site-packages"; \
     mkdir -p "$TARGET"; \
-    WHEEL="$(ls -1 /tmp/*.whl | head -n1)"; \
-    test -e "$WHEEL"; \
-    python -m pip install -vvv --no-deps --no-warn-script-location \
-      --target="$TARGET" "$WHEEL"
+    for WHEEL in /tmp/*.whl; do \
+      test -e "$WHEEL"; \
+      python -m pip install -vvv --no-deps --no-warn-script-location \
+        --target="$TARGET" "$WHEEL"; \
+    done
 
 RUN python -c "import sys, importlib; p='/install/lib/python${PYTHON_VERSION}/site-packages'; sys.path.insert(0,p); importlib.import_module('synapse_auto_dm_inviter')"
+
+RUN python -c "import sys, importlib; p='/install/lib/python${PYTHON_VERSION}/site-packages'; sys.path.insert(0,p); importlib.import_module('synapse_modules.mixpanel_analytics')"
 
 
 
