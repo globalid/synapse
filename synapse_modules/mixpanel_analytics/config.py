@@ -22,7 +22,9 @@ class MixpanelConfig:
         falling back to the config value if not set.
         """
         # Read from environment variable first, fall back to config
-        self.mixpanel_token = os.environ.get("MIXPANEL_PROJECT_TOKEN") or config.get("mixpanel_token")
+        self.mixpanel_token = os.environ.get("MIXPANEL_PROJECT_TOKEN") or config.get(
+            "mixpanel_token"
+        )
         if not self.mixpanel_token:
             raise ValueError(
                 "mixpanel_token is required: set MIXPANEL_PROJECT_TOKEN environment variable "

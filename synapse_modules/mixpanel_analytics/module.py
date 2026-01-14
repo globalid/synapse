@@ -4,7 +4,6 @@ from typing import Any, Dict
 from synapse.events import EventBase
 from synapse.module_api import ModuleApi
 from synapse.types import StateMap
-
 from synapse_modules.mixpanel_analytics.config import MixpanelConfig
 from synapse_modules.mixpanel_analytics.event_handlers import EventHandler
 from synapse_modules.mixpanel_analytics.mixpanel_client import MixpanelClient

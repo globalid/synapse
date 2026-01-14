@@ -80,3 +80,6 @@ book/
 /poetry.toml
 docker/*.whl
 data/
+
+synapse_modules/build
+synapse_modules/dist

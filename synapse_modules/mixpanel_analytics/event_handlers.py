@@ -1,8 +1,7 @@
-import json
 import logging
 import re
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict
 
 from synapse.api.constants import EventTypes, Membership
 from synapse.events import EventBase
@@ -41,9 +40,8 @@ class EventHandler:
             state_events: Current room state
         """
         try:
-
             logger.info(f"got this event {vars(event)}")
-            #if event.type not in [EventTypes.Message, EventTypes.Member]:
+            # if event.type not in [EventTypes.Message, EventTypes.Member]:
             #    logger.info(f"not interested in event type {event.type}")
             #    return
 
@@ -53,7 +51,7 @@ class EventHandler:
             profile_info = await self._store.get_profileinfo(user_id)
             uns_name = profile_info.display_name
             # user id is "@<identity id>:<USBC chat domain>"
-            identity_id = re.split(r'[@:]', sender)[1]
+            identity_id = re.split(r"[@:]", sender)[1]
 
             device = await self._get_device(event)
 
@@ -64,7 +62,7 @@ class EventHandler:
                 "gid_uuid": identity_id,
                 "uns_name": uns_name,
                 "platform": device["platform"],
-                "timestamp":  datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%SZ'),
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ"),
             }
 
             # Determine event type and track
@@ -75,7 +73,6 @@ class EventHandler:
 
         except Exception as e:
             logger.error(f"Error handling event for Mixpanel: {e}", exc_info=True)
-
 
     async def _get_device(self, event: EventBase) -> dict[str, str]:
         try:
@@ -104,8 +101,6 @@ class EventHandler:
         except Exception as e:
             logger.debug(f"Error determining platform for Mixpanel: {e}", exc_info=True)
             return {"platform": "unknown", "device_id": "unknown"}
-
-
 
     async def _handle_message_event(
         self, event: EventBase, user_props: Dict[str, Any]
@@ -170,14 +165,22 @@ class EventHandler:
         replaces_state_id = event.unsigned.get("replaces_state")
         if replaces_state_id:
             try:
-                prev_event = await self._store.get_event(replaces_state_id, allow_none=True)
+                prev_event = await self._store.get_event(
+                    replaces_state_id, allow_none=True
+                )
                 if prev_event:
                     prev_membership = prev_event.content.get("membership")
-                    logger.debug(f"Previous membership: {prev_membership} (from event {replaces_state_id})")
+                    logger.debug(
+                        f"Previous membership: {prev_membership} (from event {replaces_state_id})"
+                    )
             except Exception as e:
-                logger.warning(f"Could not fetch previous event {replaces_state_id}: {e}")
+                logger.warning(
+                    f"Could not fetch previous event {replaces_state_id}: {e}"
+                )
 
-        logger.debug(f"Membership event - current: {membership}, previous: {prev_membership}, sender: {event.sender}, state_key: {event.get_state_key()}")
+        logger.debug(
+            f"Membership event - current: {membership}, previous: {prev_membership}, sender: {event.sender}, state_key: {event.get_state_key()}"
+        )
 
         # Invite sent: someone invited this user
         # The sender is the inviter, state_key is the invitee
@@ -216,7 +219,10 @@ class EventHandler:
             check_text = body + content.get("formatted_body", "")
 
             # Look for payment transfer type parameters
-            if "type=REQUEST_TRANSFER" in check_text or "type=DIRECT_TRANSFER" in check_text:
+            if (
+                "type=REQUEST_TRANSFER" in check_text
+                or "type=DIRECT_TRANSFER" in check_text
+            ):
                 return True
 
         return False
@@ -232,5 +238,7 @@ class EventHandler:
             event: The Matrix event
             user_props: User properties
         """
-        await self.mixpanel_client.track(user_props['distinct_id'], event_name, user_props)
+        await self.mixpanel_client.track(
+            user_props["distinct_id"], event_name, user_props
+        )
         logger.info(f"Tracked {event_name} for user {user_props['distinct_id']}")

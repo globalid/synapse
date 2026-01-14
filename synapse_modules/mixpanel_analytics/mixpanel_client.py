@@ -45,7 +45,9 @@ class MixpanelClient:
 
         try:
             self._mp.track(distinct_id, event_name, properties)
-            logger.debug(f"Successfully tracked event: {event_name} for user {distinct_id}")
+            logger.debug(
+                f"Successfully tracked event: {event_name} for user {distinct_id}"
+            )
 
         except Exception as e:
             logger.error(
