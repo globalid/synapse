@@ -56,6 +56,7 @@ class MixpanelAnalytics:
         # Initialize Mixpanel client
         self._mixpanel_client = MixpanelClient(
             token=self._config.mixpanel_token,
+            module_api=api,
             debug=self._config.debug,
         )
 
