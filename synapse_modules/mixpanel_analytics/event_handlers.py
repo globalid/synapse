@@ -41,9 +41,9 @@ class EventHandler:
         """
         try:
             logger.info(f"got this event {vars(event)}")
-            # if event.type not in [EventTypes.Message, EventTypes.Member]:
-            #    logger.info(f"not interested in event type {event.type}")
-            #    return
+            if event.type not in [EventTypes.Message, EventTypes.Member]:
+                logger.info(f"not interested in event type {event.type}")
+                return
 
             sender = event.sender
             user_id = UserID.from_string(sender)
