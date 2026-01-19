@@ -1,9 +1,9 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from synapse.events import EventBase
 from synapse.module_api import ModuleApi
-from synapse.types import StateMap
+from synapse.types import JsonDict, StateMap
 from synapse_modules.mixpanel_analytics.config import MixpanelConfig
 from synapse_modules.mixpanel_analytics.event_handlers import EventHandler
 from synapse_modules.mixpanel_analytics.mixpanel_client import MixpanelClient
@@ -22,6 +22,8 @@ class MixpanelAnalytics:
     - chat_room_request_accepted: When a user accepts a room invitation
     - chat_room_request_rejected: When a user rejects a room invitation
     - payment_card_sent: When a payment-related card is sent
+    - user_blocked: When a user blocks another user (future)
+    - user_unblocked: When a user unblocks another user (future)
 
     Configuration example:
     ```yaml
@@ -55,6 +57,7 @@ class MixpanelAnalytics:
 
         # Initialize Mixpanel client
         self._mixpanel_client = MixpanelClient(
+            api,
             token=self._config.mixpanel_token,
             debug=self._config.debug,
         )
@@ -65,6 +68,11 @@ class MixpanelAnalytics:
         # Register callbacks
         self._api.register_third_party_rules_callbacks(
             on_new_event=self._on_new_event,
+        )
+
+        # Register account data callbacks for tracking block/unblock events
+        self._api.register_account_data_callbacks(
+            on_account_data_updated=self._on_account_data_updated,
         )
 
         logger.info("Mixpanel analytics module initialized successfully")
@@ -85,6 +93,37 @@ class MixpanelAnalytics:
         logger.info(f"Mixpanel analytics - got new event: {event}")
 
         await self._event_handler.handle_event(event, state_events)
+
+    async def _on_account_data_updated(
+        self,
+        user_id: str,
+        room_id: Optional[str],
+        account_data_type: str,
+        content: JsonDict,
+    ) -> None:
+        """
+        Callback triggered when account data is updated.
+
+        Args:
+            user_id: The user whose account data changed
+            room_id: The room ID (None for global account data)
+            account_data_type: Type of account data (e.g., "m.ignored_user_list")
+            content: The new content
+        """
+        if not self._config.enabled:
+            return
+
+        logger.info(
+            f"Mixpanel analytics - account data updated: user={user_id}, "
+            f"type={account_data_type}, room={room_id}, content={content}"
+        )
+
+        # For now, just log it - we'll add tracking logic next
+        if account_data_type == "m.ignored_user_list":
+            ignored_users = content.get("ignored_users", {})
+            logger.info(
+                f"User {user_id} updated block list. Currently blocking: {list(ignored_users.keys())}"
+            )
 
     @staticmethod
     def parse_config(config: Dict[str, Any]) -> Dict[str, Any]:
