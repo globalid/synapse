@@ -1,11 +1,11 @@
 import logging
 import re
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from synapse.api.constants import EventTypes, Membership
 from synapse.events import EventBase
-from synapse.types import StateMap, UserID
+from synapse.types import JsonDict, StateMap, UserID
 
 if TYPE_CHECKING:
     from synapse.module_api import ModuleApi
@@ -74,21 +74,58 @@ class EventHandler:
         except Exception as e:
             logger.error(f"Error handling event for Mixpanel: {e}", exc_info=True)
 
-    async def _get_device(self, event: EventBase) -> dict[str, str]:
+    async def _get_device(
+        self, event: Optional[EventBase] = None, user_id: Optional[str] = None
+    ) -> dict[str, str]:
+        """
+        Get device info and platform for a user.
+
+        Args:
+            event: Event to extract device from (preferred if available)
+            user_id: User ID to get most recent device for (fallback)
+
+        Returns:
+            Dict with device_id and platform
+        """
         try:
-            sender = event.sender
-            device_id = event.internal_metadata.device_id
+            # If we have an event, use the device_id from it
+            if event:
+                sender = event.sender
+                device_id = event.internal_metadata.device_id
 
-            device = await self._store.db_pool.simple_select_one(
-                table="devices",
-                keyvalues={"user_id": sender, "device_id": device_id},
-                retcols=["user_agent"],
-                desc="get_device_info_for_mixpanel",
-                allow_none=True,
-            )
+                device = await self._store.db_pool.simple_select_one(
+                    table="devices",
+                    keyvalues={"user_id": sender, "device_id": device_id},
+                    retcols=["user_agent"],
+                    desc="get_device_info_for_mixpanel",
+                    allow_none=True,
+                )
 
-            user_agent = device[0]
+                user_agent = device[0]
 
+            # Otherwise, get the most recent device for the user
+            elif user_id:
+                devices = await self._store.db_pool.simple_select_list(
+                    table="devices",
+                    keyvalues={"user_id": user_id},
+                    retcols=["device_id", "user_agent", "last_seen"],
+                    desc="get_last_device_for_mixpanel",
+                )
+
+                if not devices:
+                    return {"platform": "unknown", "device_id": "unknown"}
+
+                # Sort by last_seen and get the most recent
+                devices_sorted = sorted(
+                    devices, key=lambda d: d.get("last_seen", 0) or 0, reverse=True
+                )
+                most_recent = devices_sorted[0]
+                device_id = most_recent["device_id"]
+                user_agent = most_recent.get("user_agent", "")
+            else:
+                return {"platform": "unknown", "device_id": "unknown"}
+
+            # Detect platform from user agent (same logic for both paths)
             if re.search("android", user_agent, re.I):
                 return {"platform": "Android", "device_id": device_id}
             elif re.search("ios", user_agent, re.I):
@@ -126,17 +163,17 @@ class EventHandler:
         # Check for payment cards
         # Payment cards might be identified by custom message type or body content
         if self._is_payment_card(msgtype, body, content):
-            await self._track_event("payment_card_sent", event, user_props)
+            await self._track_event("payment_card_sent", user_props)
             return
 
         # Check for attachments
         if msgtype in ["m.image", "m.file", "m.video", "m.audio"]:
-            await self._track_event("attachment_sent", event, user_props)
+            await self._track_event("attachment_sent", user_props)
             return
 
         # Regular text message
         if msgtype in ["m.text", "m.notice", "m.emote"]:
-            await self._track_event("message_sent", event, user_props)
+            await self._track_event("message_sent", user_props)
             return
 
         # Log unknown message types
@@ -185,15 +222,15 @@ class EventHandler:
         # Invite sent: someone invited this user
         # The sender is the inviter, state_key is the invitee
         if membership == Membership.INVITE:
-            await self._track_event("chat_room_request_sent", event, user_props)
+            await self._track_event("chat_room_request_sent", user_props)
 
         # Invite accepted: user moved from invite to join
         elif membership == Membership.JOIN and prev_membership == Membership.INVITE:
-            await self._track_event("chat_room_request_accepted", event, user_props)
+            await self._track_event("chat_room_request_accepted", user_props)
 
         # Invite rejected: user moved from invite to leave
         elif membership == Membership.LEAVE and prev_membership == Membership.INVITE:
-            await self._track_event("chat_room_request_rejected", event, user_props)
+            await self._track_event("chat_room_request_rejected", user_props)
 
     def _is_payment_card(
         self, msgtype: str, body: str, content: Dict[str, Any]
@@ -227,15 +264,59 @@ class EventHandler:
 
         return False
 
-    async def _track_event(
-        self, event_name: str, event: EventBase, user_props: Dict[str, Any]
+    async def handle_account_data_update(
+        self,
+        user_id_str: str,
+        room_id: Optional[str],
+        account_data_type: str,
+        content: JsonDict,
     ) -> None:
+        """
+        Handle account data updates for Mixpanel tracking.
+
+        Args:
+            user_id: The user whose account data changed
+            room_id: The room ID (None for global account data)
+            account_data_type: Type of account data
+            content: The new content
+        """
+        try:
+            # Only handle ignored_user_list updates for now
+            if account_data_type != "m.ignored_user_list":
+                return
+
+            # Get display name
+            user_id = UserID.from_string(user_id_str)
+            profile_info = await self._store.get_profileinfo(user_id)
+            uns_name = profile_info.display_name
+            # user id is "@<identity id>:<USBC chat domain>"
+            identity_id = re.split(r"[@:]", user_id_str)[1]
+
+            # Get device info using the most recent device for this user
+            device = await self._get_device(user_id=user_id_str)
+
+            props = {
+                "distinct_id": f"$device:{device['device_id']}",
+                "gid_uuid": identity_id,
+                "uns_name": uns_name,
+                "platform": device["platform"],
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ"),
+            }
+
+            # Track to Mixpanel
+            await self._track_event("user_block_action", props)
+
+        except Exception as e:
+            logger.error(
+                f"Error handling account data update for Mixpanel: {e}", exc_info=True
+            )
+
+    async def _track_event(self, event_name: str, user_props: Dict[str, Any]) -> None:
         """
         Track an event in Mixpanel.
 
         Args:
             event_name: Name of the event to track
-            event: The Matrix event
             user_props: User properties
         """
         await self.mixpanel_client.track(

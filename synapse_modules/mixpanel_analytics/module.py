@@ -113,17 +113,9 @@ class MixpanelAnalytics:
         if not self._config.enabled:
             return
 
-        logger.info(
-            f"Mixpanel analytics - account data updated: user={user_id}, "
-            f"type={account_data_type}, room={room_id}, content={content}"
+        await self._event_handler.handle_account_data_update(
+            user_id, room_id, account_data_type, content
         )
-
-        # For now, just log it - we'll add tracking logic next
-        if account_data_type == "m.ignored_user_list":
-            ignored_users = content.get("ignored_users", {})
-            logger.info(
-                f"User {user_id} updated block list. Currently blocking: {list(ignored_users.keys())}"
-            )
 
     @staticmethod
     def parse_config(config: Dict[str, Any]) -> Dict[str, Any]:
