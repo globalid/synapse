@@ -78,3 +78,8 @@ book/
 
 # Don't include users' poetry configs
 /poetry.toml
+docker/*.whl
+data/
+
+synapse_modules/build
+synapse_modules/dist
