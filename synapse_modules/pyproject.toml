@@ -3,10 +3,9 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "synapse-mixpanel-analytics"
+name = "synapse-modules"
 version = "0.1.0"
-description = "Synapse module for tracking chat events in Mixpanel"
-readme = "mixpanel_analytics/README.md"
+description = "Custom Synapse modules including Mixpanel analytics and cleanup invites (auto-leave + cancel API)"
 requires-python = ">=3.8"
 license = {text = "AGPL-3.0-or-later"}
 authors = [

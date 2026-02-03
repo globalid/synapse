@@ -183,6 +183,8 @@ RUN python -c "import sys, importlib; p='/install/lib/python${PYTHON_VERSION}/si
 
 RUN python -c "import sys, importlib; p='/install/lib/python${PYTHON_VERSION}/site-packages'; sys.path.insert(0,p); importlib.import_module('synapse_modules.mixpanel_analytics')"
 
+RUN python -c "import sys, importlib; p='/install/lib/python${PYTHON_VERSION}/site-packages'; sys.path.insert(0,p); importlib.import_module('synapse_modules.cleanup_invites')"
+
 
 
 
